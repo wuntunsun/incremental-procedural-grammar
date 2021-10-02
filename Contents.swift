@@ -62,19 +62,30 @@ import Foundation
  
  In traditional grammar, a part of speech or part-of-speech (abbreviated as POS or PoS) is a category of words (or, more generally, of lexical items) that have similar grammatical properties. Words that are assigned to the same part of speech generally display similar syntactic behavior—they play similar roles within the grammatical structure of sentences—and sometimes similar morphology in that they undergo inflection for similar properties.
  
+  a simple sentence is made up of a subject + a verb + possibly an object. This sentence structure is sometimes represented as SVO
+  
+ A simple sentence consists of one main (or independent) clause. To be complete, a simple sentence must have at least one subject and one verb.
+
+ Example: The man (subject) went (verb) to the store (object).
  */
 
 enum Sentence {
     
-    case simple(NounPhrase, VerbPhrase)
+    case simple(subject: NounPhrase, VerbPhrase, object: NounPhrase?)
 }
+
+/*
+ 
+ A proper noun is a noun that identifies a single entity and is used to refer to that entity, such as London, Jupiter, Sarah, or Microsoft, as distinguished from a common noun, which is a noun that refers to a class of entities (city, planet, person, corporation) and may be used when referring to instances of a specific class (a city, another planet, these persons, our corporation).[1][2][3][4] Some proper nouns occur in plural form (optionally or exclusively), and then they refer to groups of entities considered as unique (the Hendersons, the Everglades, the Azores, the Pleiades). Proper nouns can also occur in secondary applications, for example modifying nouns (the Mozart experience; his Azores adventure), or in the role of common nouns (he's no Pavarotti; a few would-be Napoleons). The detailed definition of the term is problematic and, to an extent, governed by convention
+*/
 
 enum NounTag {
     
     // handle countable/uncountable...
+    // properNoun, properName (phrase)
     
-    case singularNoun(Noun)       // NN
-    case pluralNoun(Noun)         // NNS
+    case singularNoun(Noun)             // NN
+    case pluralNoun(PluralisableNoun)   // NNS
     case properNoun         // NNP
     case pluralProperNoun   // NNPS
 }
@@ -123,6 +134,12 @@ enum PronounTag {
     case indefinite // anything, anybody, anyone, something, somebody, someone, nothing, nobody, none, no one
 }
 
+// there are singular and uncountable nouns which have no plural e.g. physics, economics, news, athletics
+// there are singular and countable nouns which have a plural e.g. bean, pea, bike, water
+// there are collective nouns which are treated as singular e.g. team, family, class, union, army, committee
+
+// all of NounTag, DeterminerTag, and PronounTag can be uncountable, countable or collective
+
 enum NounPhrase { // NP
     
     case base(NounTag)
@@ -156,11 +173,11 @@ enum PrepositionalPhrase { // PP
 
 enum VerbTag {
     
-    case pastTense
+    case pastTense(Verb)
     case presentTense(Verb)
-    case presentTenseThirdPersonPlural
-    case presentParticiple // G-Form
-    case pastParticiple // N-Form
+    case presentTenseThirdPersonPlural(Verb)
+    case presentParticiple(Verb) // G-Form
+    case pastParticiple(Verb) // N-Form
 }
 
 // the main auxiliary verbs are to be, to have, and to do
@@ -205,7 +222,17 @@ enum TerminalNode {
     
 }
 
-let nouns: [Noun] = ["people", "history", "way", "art", "world", "information", "map", "two", "family", "government"]
+let collectiveNouns: [CollectiveNoun] = ["family"]
+let countableNouns: [CountableNoun] = ["map", "people"]
+let uncountableNouns: [UncountableNoun] = ["news"]
+
+let pluralisableNouns: [PluralisableNoun] = countableNouns.map { PluralisableNoun($0) }
+    + collectiveNouns.map { PluralisableNoun($0) }
+
+let nouns: [Noun] = pluralisableNouns.map { Noun($0) }
+    + uncountableNouns.map { Noun($0) }
+
+//let nouns: [Noun] = ["people", "history", "way", "art", "world", "information", "map", "two", "family", "government"]
 
 // The majority are regular verbs, which means that “-d” or “-ed” is added to their base form (the infinitive of the verb without to) to create both the past simple tense and past participle.
 
@@ -244,10 +271,15 @@ extension Word: ExpressibleByStringLiteral {
 //    return Word(stringLiteral: String(describing: left) + String(describing: right))
 //}
 
-struct Noun {
+// there are singular and uncountable nouns which have no plural e.g. physics, economics, news, athletics
+// there are singular and countable nouns which have a plural e.g. bean, pea, bike, water
+// there are collective nouns which are treated as singular e.g. team, family, class, union, army, committee
 
+// all of NounTag, DeterminerTag, and PronounTag can be uncountable, countable or collective
+
+struct CollectiveNoun {
+    
     let singular: Word
-    var plural: Word { Word(stringLiteral: "\(String(describing: self.singular))s") }
     
     init(singular: Word) {
         
@@ -255,11 +287,85 @@ struct Noun {
     }
 }
 
-extension Noun: ExpressibleByStringLiteral {
+extension CollectiveNoun: ExpressibleByStringLiteral {
 
     public init(stringLiteral value: String) {
 
         self.singular = Word(stringLiteral: value)
+    }
+}
+
+
+struct UncountableNoun {
+    
+    let singular: Word
+    
+    init(singular: Word) {
+        
+        self.singular = singular
+    }
+}
+
+extension UncountableNoun: ExpressibleByStringLiteral {
+
+    public init(stringLiteral value: String) {
+
+        self.singular = Word(stringLiteral: value)
+    }
+}
+
+
+struct CountableNoun {
+    
+    let singular: Word
+    
+    init(singular: Word) {
+        
+        self.singular = singular
+    }
+}
+
+extension CountableNoun: ExpressibleByStringLiteral {
+
+    public init(stringLiteral value: String) {
+
+        self.singular = Word(stringLiteral: value)
+    }
+}
+
+
+struct PluralisableNoun {
+
+    private var _singular: (() -> Word)!
+    
+    var singular: Word { self._singular() }
+    var plural: Word { Word(stringLiteral: "\(String(describing: self.singular))s") }
+
+    init(_ countable: CountableNoun) {
+
+        self._singular = { countable.singular }
+    }
+
+    init(_ collective: CollectiveNoun) {
+
+        self._singular = { collective.singular }
+    }
+}
+
+
+struct Noun {
+    
+    private var _singular: (() -> Word)!
+    var singular: Word { self._singular() }
+    
+    init(_ pluralisable: PluralisableNoun) {
+
+        self._singular = { pluralisable.singular }
+    }
+
+    init(_ uncountable: UncountableNoun) {
+
+        self._singular = { uncountable.singular }
     }
 }
 
@@ -672,12 +778,16 @@ for verb in verbs {
 // imperative
 
 
+
 extension Sentence: CustomStringConvertible {
 
     var description: String {
     
+        // no knowledge is transferred about the Sentence...
+        // subject and verb must agree so need to be resolved together
+        
         switch self {
-        case .simple(let np, let vp):
+        case .simple(let np, let vp, _):
             return "\(String(describing: np)) \(String(describing: vp))"
         }
     }
@@ -740,20 +850,63 @@ extension VerbTag: CustomStringConvertible {
     var description: String {
         
         switch self {
-        case .pastTense:
-            return "past"
+        case .pastTense(let verb):
+            return String(describing: verb.simplePast)
         case .presentTense(let verb):
             return String(describing: verb.base)
-        case .presentTenseThirdPersonPlural:
+        case .presentTenseThirdPersonPlural(let verb):
             return "present 3rd person plural"
-        case .presentParticiple:
-            return "present participle"
-        case .pastParticiple:
-            return "past participle"
+        case .presentParticiple(let verb):
+            return String(describing: verb.presentParticiple)
+        case .pastParticiple(let verb):
+            return String(describing: verb.pastParticiple)
         }
     }
 }
 
-let sentence = Sentence.simple(.base(.singularNoun(Noun(stringLiteral: "people")))
-                               , .base(.presentTense(Verb(RegularVerb(stringLiteral: "walk"))))) // people walk
-String(describing: sentence)
+// coding .singularNoun of a CollectiveNoun such as 'family'
+// the family runs... the families run
+// an UncountableNoun such as 'news' has no plural so it would be wrong to handle this way
+// a .singularNoun can take a CollectiveNoun, a CountableNoun and a UncountableNoun (any noun)
+// where a .pluralNoun (tag) can take either a CollectiveNoun or a CountableNoun
+// PluralisableNoun: CollectiveNoun or a CountableNoun (for both)
+// Noun: PluralisableNoun or a UncountableNoun (only for .singularNoun)
+let singularPresentTense = Sentence.simple(
+    subject: .base(.singularNoun(Noun(PluralisableNoun(CountableNoun(stringLiteral: "people")))))
+    , .base(.presentTense(Verb(RegularVerb(stringLiteral: "walk"))))
+    , object: nil)
+
+let singularPastTense = Sentence.simple(
+    subject: .base(.singularNoun(Noun(PluralisableNoun(CountableNoun(stringLiteral: "people")))))
+    , .base(.pastTense(Verb(RegularVerb(stringLiteral: "walk"))))
+    , object: nil)
+
+let singularPastParticiple = Sentence.simple(
+    subject: .base(.singularNoun(Noun(PluralisableNoun(CountableNoun(stringLiteral: "people")))))
+    , .base(.pastParticiple(Verb(RegularVerb(stringLiteral: "walk"))))
+    , object: nil)
+
+let singularPresentParticiple = Sentence.simple(
+    subject: .base(.singularNoun(Noun(PluralisableNoun(CountableNoun(stringLiteral: "people")))))
+    , .base(.presentParticiple(Verb(RegularVerb(stringLiteral: "walk"))))
+    , object: nil)
+
+let pluralPresentTense = Sentence.simple(
+    subject: .base(.singularNoun(Noun(PluralisableNoun(CountableNoun(stringLiteral: "people")))))
+    , .base(.pastParticiple(Verb(RegularVerb(stringLiteral: "walk"))))
+    , object: nil)
+
+let pluralPresentParticiple = Sentence.simple(
+    subject: .base(.pluralNoun(PluralisableNoun(CountableNoun(stringLiteral: "people"))))
+    , .base(.presentParticiple(Verb(RegularVerb(stringLiteral: "walk"))))
+    , object: nil)
+
+
+
+// Add an “s” to the verb if the subject is third-person singular (he, she, it, they, Martha, Sam, etc.). Do not add an “s” if the subject is plural.
+
+// he walks, they walk, it walks
+// a sentence has subject,verb and optional object
+let foo = Sentence.simple(subject: .pronoun(.personal) // singular or plural?
+                          , .base(.presentTense(Verb(RegularVerb(stringLiteral: "walk"))))
+                          , object: nil)
