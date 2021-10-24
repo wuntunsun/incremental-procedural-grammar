@@ -114,6 +114,7 @@ enum ModifierTag {
     // are there categories of derterminer?
 }
 
+
 /*
  Case and number distinctions do not apply to all pronoun types. In fact, they apply only to personal pronouns, possessive pronouns, and reflexive pronouns. It is only in these types, too, that gender differences are shown (personal he/she, possessive his/hers, reflexive himself/herself). All other types are unvarying in their form.
 
@@ -122,9 +123,16 @@ enum ModifierTag {
  A major difference between pronouns and nouns generally is that pronouns do not take the or a/an before them. Further, pronouns do not take adjectives before them, except in very restricted constructions involving some indefinite pronouns (a little something, a certain someone).
  */
 
+// the subject of a sentence is any NounPhrase
+// which can be a
+
 enum PronounTag {
     
-    case personal // [SUBJECTIVE CASE] I, you, he/she/it... we, you, they... [OBJECTIVE CASE] me, you, him/her/it... us, you, them
+    // in the case of a noun, the noun iteself may be pluralisable
+    // with a pronoun, it affects the verb
+    // rather than a modifier, it is an attribute of the pronoun itself
+    
+    case personal(ProperNoun) // [SUBJECTIVE CASE] I, you, he/she/it... we, you, they... [OBJECTIVE CASE] me, you, him/her/it... us, you, them
     case possessive // mine, yours, his, hers, ours, theirs
     case reflexive  // myself, yourself, himself, herself, itself, oneself, ourselves, yourselves, themselves
     case reciprocal // each other, one another
@@ -132,6 +140,20 @@ enum PronounTag {
     case relative   // that, which, who, whose, whom, where, when
     case interrogative  // who, what, why, where, when, whatever
     case indefinite // anything, anybody, anyone, something, somebody, someone, nothing, nobody, none, no one
+}
+
+extension PronounTag: CustomStringConvertible {
+    
+    var description: String {
+        
+        switch self {
+            
+        case .personal(let properNoun):
+            return String(describing: properNoun.personalPronoun)
+        default:
+            return "pronoun tag"
+        }
+    }
 }
 
 // there are singular and uncountable nouns which have no plural e.g. physics, economics, news, athletics
@@ -225,6 +247,10 @@ enum TerminalNode {
 let collectiveNouns: [CollectiveNoun] = ["family"]
 let countableNouns: [CountableNoun] = ["map", "people"]
 let uncountableNouns: [UncountableNoun] = ["news"]
+let properNouns: [ProperNoun] = [ProperNoun(name: "Steven", personalPronoun: .he)
+                                 , ProperNoun(name: "Africa", personalPronoun: .it)
+                                 , ProperNoun(name: "London", personalPronoun: .it)
+                                 , ProperNoun(name: "Monday", personalPronoun: .it)]
 
 let pluralisableNouns: [PluralisableNoun] = countableNouns.map { PluralisableNoun($0) }
     + collectiveNouns.map { PluralisableNoun($0) }
@@ -274,7 +300,7 @@ extension Word: ExpressibleByStringLiteral {
 // there are singular and uncountable nouns which have no plural e.g. physics, economics, news, athletics
 // there are singular and countable nouns which have a plural e.g. bean, pea, bike, water
 // there are collective nouns which are treated as singular e.g. team, family, class, union, army, committee
-
+// there are proper nouns which identify a particular person, place, or thing, e.g. Steven, Africa, London, Monday. In written English, proper nouns begin with capital letters.
 // all of NounTag, DeterminerTag, and PronounTag can be uncountable, countable or collective
 
 struct CollectiveNoun {
@@ -333,7 +359,42 @@ extension CountableNoun: ExpressibleByStringLiteral {
     }
 }
 
+enum PersonalPronoun: CustomStringConvertible {
+    
+    case i
+    case he
+    case she
+    case it
+    case they
+    
+    var description: String {
+        
+        switch self {
+            
+        case .i:
+            return "I"
+        case .he:
+            return "he"
+        case .she:
+            return "she"
+        case .it:
+            return "it"
+        case .they:
+            return "they"
+        }
+    }
+}
 
+
+
+/// person, place or thing
+struct ProperNoun {
+  
+    let name: Word
+    let personalPronoun: PersonalPronoun
+}
+
+                                                  
 struct PluralisableNoun {
 
     private var _singular: (() -> Word)!
@@ -367,6 +428,8 @@ struct Noun {
 
         self._singular = { uncountable.singular }
     }
+    
+    // TODO: more types of Noun...
 }
 
 /*
@@ -778,6 +841,42 @@ for verb in verbs {
 // imperative
 
 
+struct Subject {
+
+    static func isThirdPersonSingular(_ personalPronoun: PersonalPronoun) -> Bool {
+        
+        switch personalPronoun {
+        case .he,.she, .it:
+            return true
+        default:
+            return false
+        }
+    }
+
+    static func isThirdPersonSingular(_ pronounTag: PronounTag) -> Bool {
+        
+        switch pronounTag {
+            
+        case .personal(let properNoun):
+            return Subject.isThirdPersonSingular(properNoun.personalPronoun)
+        default:
+            return false
+        }
+    }
+
+    static func isThirdPersonSingular(_ nounPhrase: NounPhrase) -> Bool {
+        
+        switch nounPhrase {
+            
+        case .pronoun(let pronounTag):
+            return Subject.isThirdPersonSingular(pronounTag)
+        default:
+            return false
+        }
+    }
+}
+
+
 
 extension Sentence: CustomStringConvertible {
 
@@ -785,10 +884,17 @@ extension Sentence: CustomStringConvertible {
     
         // no knowledge is transferred about the Sentence...
         // subject and verb must agree so need to be resolved together
+        // the resolution must happen here
+        // extract the knowledge from the np to apply to the vp
+        // if third person singular, add an s...
         
         switch self {
         case .simple(let np, let vp, _):
-            return "\(String(describing: np)) \(String(describing: vp))"
+            // the first np is the subject which we must test
+            // would switch on its type to go deeper
+            return Subject.isThirdPersonSingular(np)
+            ? "\(String(describing: np)) \(String(describing: vp))s"
+            : "\(String(describing: np)) \(String(describing: vp))"
         }
     }
 }
@@ -807,7 +913,7 @@ extension NounPhrase: CustomStringConvertible {
         case .proform(let tag):
             return "proform tag"
         case .pronoun(let tag):
-            return "pronoun tag"
+            return String(describing: tag)
         }
     }
 }
@@ -901,12 +1007,6 @@ let pluralPresentParticiple = Sentence.simple(
     , .base(.presentParticiple(Verb(RegularVerb(stringLiteral: "walk"))))
     , object: nil)
 
-
-
-// Add an “s” to the verb if the subject is third-person singular (he, she, it, they, Martha, Sam, etc.). Do not add an “s” if the subject is plural.
-
-// he walks, they walk, it walks
-// a sentence has subject,verb and optional object
-let foo = Sentence.simple(subject: .pronoun(.personal) // singular or plural?
-                          , .base(.presentTense(Verb(RegularVerb(stringLiteral: "walk"))))
+let foo = Sentence.simple(subject: .pronoun(.personal(ProperNoun(name: "Steven", personalPronoun: .they)))
+                          , .base(.pastTense(Verb(RegularVerb(stringLiteral: "walk"))))
                           , object: nil)
