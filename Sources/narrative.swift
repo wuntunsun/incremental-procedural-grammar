@@ -202,7 +202,7 @@ public struct Narrative {
             self.sequences = sequences
         }
         
-        mutating func beat(from: Narrative, act: Act.Part) {
+        mutating func beat(from: Narrative, given: Given) {
             
             // new or existing Characters?
             
@@ -245,26 +245,46 @@ public struct Narrative {
         self.locations = locations
     }
         
-    mutating func beat() {
-        
-        // which Act? from Plot
+    func beat(given: Given) -> [Character: Sequence] {
+
+        // which Act?
         // which Character or Characters
         // create or pick up Sequence per Character (with POV)
         // group characters, then call beat on each one to advance by a Scene or Sequel
     }
     
+    var given: Given? {
+        
+        let location = Location(name: ProperNoun())
+        return Given(characters: []
+                     , location: Location(name: ProperNoun())
+                     , act: Act.Part.introduction)
+    }
+    
     // how to push the story along
     // new event, change location
     // continue event
-    mutating func foo() {
+    mutating func write() {
         
-        //        \part[<short title>]{<title>}
-        //        \chapter[<short title>]{<title>}
-        //        \section[<short title>]{<title>}
-        //        \subsection[<short title>]{<title>}
-        //        \subsubsection[<short title>]{<title>}
-        //        \paragraph[<short title>]{<title>}
-        //        \subparagraph[<short title>]{<title>}
+        if let given = self.given {
+            
+            let story = self.beat(given: given)
+            //let characters = story
+        }
+        
+        // we need a Given?
+        // the Given is where we are in the Narrative
+        // it includes the Act.Part i.e. introduction, risingAction etc.
+        // but maybe it comes from the Narrative as well
+        //
+        
+        // \part[<short title>]{<title>}
+        // \chapter[<short title>]{<title>}
+        // \section[<short title>]{<title>}
+        // \subsection[<short title>]{<title>}
+        // \subsubsection[<short title>]{<title>}
+        // \paragraph[<short title>]{<title>}
+        // \subparagraph[<short title>]{<title>}
         
         // 1 .protagonist
         // 1 .antagonist
@@ -275,7 +295,7 @@ public struct Narrative {
         // dependent on the plot, generate Act.Part within each Act
         // each Scene needs a
         
-        // given, new
+        // the narrative drives the current Act on beat by beat
     }
     
     // provide given for reference and generate new...
